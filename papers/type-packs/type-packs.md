@@ -9,11 +9,9 @@ This paper covers different aspects of type packs language feature, elaborates o
    1. [Declaring type packs](#declaring-type-packs)
    1. [Using the type pack](#using-the-type-pack)
    1. [Constraining type packs](#constraining-type-packs)
-      1. [Bound expansion](#bound-expansion)
-      1. [Pack zipping](#pack-zipping)
-      1. [Pack pinning](#pack-pinning)
+      1. [Constraint patterns](#constraint-patterns)
 1. [Semantics](#semantics)
-   1. [Pack expansion limitations](#pack-expansion-limitations)
+   1. ...
 1. [Epilogue](#epilogue)
    1. [Designer's note](#designers-note)
 
@@ -51,23 +49,87 @@ This syntax allows one to infer/constrain type pack length, which can be useful 
 
 ## Using the type pack
 
-After the pack was declared it must be used in some way. To use packs one can use the proposed pack expansion syntax:
+After the pack was declared it must be used in some way. To use packs one can use the proposed expansion syntax:
 
 ```rust
 impl<[Args]> FnOnce(Args..) for Foo { ... }
 ```
 
-Packs are not the only new entity that can be expanded. Type patterns can also serve as the argument for the expansion _"operator"_:
+But packs are not the only new entity that can be expanded. Type patterns can also serve as the expansion target:
 
 ```rust
 impl<[Ts]> ((&mut Ts)..) { ... }
 ```
 
-In this example `(&mut Ts)` is called a type pattern. Type patterns can also be used within bound and constraint patterns which we will cover below.
+In this example `(&mut Ts)` is called a type pattern. Type patterns can be used in other places as well, which we will discuss in the following section.
 
 ## Constraining type packs
 
-In this paper we do not consider the usage of packs within function bodies because it is not relevant for the solver, but we still must be able to constrain type packs to convey the message of _"under provided constraints I will be able to write an implementation for this trait"_.
+In this paper we do not consider the usage of packs within function bodies because it is not relevant for the solver, however we still need to be able to constrain type packs to enable this future use.
+
+Firstly, we will consider the most primitive usage of type packs within `where` clauses:
+
+```rust
+trait Foo<[Ts]>
+where
+   Ts: Clone;
+```
+
+This example doesn't contain any new syntax within the `where` clause, but it brings new interpretation of certain bounds. If type argument of a bound is a type pack the bound reads as "_for every type_ `T` _in a pack, bound_ `T: ...` _holds_".
+
+To increase consistency we also allow the following shorthand for these kinds of bounds:
+
+```rust
+trait Foo<[Ts]: Clone>;
+```
+
+Furthermore, we propose to allow type patterns to serve as type arguments of bounds:
+
+```rust
+trait Bar<[Ts]>
+where
+   (&mut Ts): Inhabited;
+```
+
+This bound reads pretty similar to the previous one: "_for every type_ `T` _in a pack, bound_ `(&mut T): ...` holds".
+
+In the following sections we will talk about new syntax introduced to bounds and constraits that allows one to express more complex relations with type packs.
+
+### Constraint patterns
+
+First syntax addition to `where` clauses targets constraints. We add a notion of constraint patterns, which are constraints that mention type packs or type patterns. Similarly to them, constraint patterns can be expanded. 
+
+Let's consider the following example:
+
+```rust
+trait Foo<T, [Ts]>
+where
+   T: (PartialEq<Ts>)..;
+```
+
+If one were to instantiate `Foo` with `Ts = A, B` they would have to ensure that bound `T: PartialEq<A> + PartialEq<B>` holds.  
+
+In other words, constraint `(Trait<Ts>)..` has a reading "_for every type_ `T` _in a pack, bound_ `Self: Trait<T>` _must hold_", which is identical to the _"sum"_ of `Trait<T>` for `T` in `Ts`.
+
+### Bound patterns and pack zipping
+
+...
+
+```rust
+trait Foo<[Ts]>
+where
+   (Ts: PartialEq<Ts>)..;
+```
+
+### Pack pinning
+
+...
+
+```rust
+trait Foo<T, [Ts]>
+where
+   T: (Bar<Ts, &(^Ts), &(^^Ts)>)..;
+```
 
 We propose the following syntax for constraining the type packs:
 
