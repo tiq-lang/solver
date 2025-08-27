@@ -75,7 +75,7 @@ where
    Ts: Clone;
 ```
 
-This example doesn't contain any new syntax within the `where` clause, but it brings new interpretation of certain bounds. If type argument of a bound is a type pack the bound reads as "_for every type_ `T` _in a pack, bound_ `T: ...` _holds_".
+This example doesn't contain any new syntax within the `where` clause, but it brings new interpretation of certain bounds. If type argument of a bound is a type pack, the bound reads as "_for every type_ `T` _in a pack, bound_ `T: ...` _holds_".
 
 To increase consistency we also allow the following shorthand for these kinds of bounds:
 
@@ -97,7 +97,7 @@ In the following sections we will talk about new syntax introduced to bounds and
 
 ### Constraint patterns
 
-First syntax addition to `where` clauses targets constraints. We add a notion of constraint patterns, which are constraints that mention type packs or type patterns. Similarly to them, constraint patterns can be expanded. 
+First syntax addition to `where` clauses targets constraints. We add a notion of constraint patterns, which are constraints that mention unexpanded type packs or type patterns. Similarly to them, constraint patterns can be expanded. 
 
 Let's consider the following example:
 
