@@ -1,0 +1,13 @@
+[package]
+name = "solver-macros"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+proc-macro2 = { version = "1.0" }
+syn = { version = "2.0", features = ["full"] }
+quote = { version = "1.0" }
+phf = { version = "0.13.1", features = ["macros"] }
+
+[lib]
+proc-macro = true
