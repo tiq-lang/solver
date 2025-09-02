@@ -256,7 +256,7 @@ mod pattern_impls {
     use super::*;
     use crate::patterns::ToPatternTokens;
     use phf::phf_map;
-    use quote::{ToTokens as _, TokenStreamExt as _, quote};
+    use quote::{TokenStreamExt as _, quote};
 
     impl ToPatternTokens for Type {
         fn to_pattern_tokens(&self, ir_crate: &Ident) -> (usize, proc_macro2::TokenStream) {

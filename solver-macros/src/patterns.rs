@@ -1,4 +1,5 @@
-use crate::items::{Impl, InherentImpl};
+use crate::items::{Impl, InherentImpl, TraitImpl};
+use quote::quote;
 use syn::{Expr, Ident, Token, braced, parse::Parse, parse_macro_input, token::Brace};
 
 pub trait ToPatternTokens {
@@ -9,7 +10,26 @@ pub trait ToPatternTokens {
 
 impl InherentImpl {
     fn to_pattern_tokens(&self, ir_crate: &Ident) -> proc_macro2::TokenStream {
-        todo!()
+        let implementor = self.implementor_ty().to_pattern_tokens(ir_crate).1;
+        quote! {
+            [ #implementor ]
+        }
+    }
+}
+
+impl TraitImpl {
+    fn to_pattern_tokens(&self, ir_crate: &Ident) -> proc_macro2::TokenStream {
+        let implementor = self.implementor_ty().to_pattern_tokens(ir_crate).1;
+        if let Some(args) = self.trait_args() {
+            let args = args.iter().map(|arg| arg.to_pattern_tokens(ir_crate).1);
+            quote! {
+                [ #implementor #( #args )* ]
+            }
+        } else {
+            quote! {
+                [ #implementor ]
+            }
+        }
     }
 }
 
@@ -74,5 +94,43 @@ pub fn impl_patterns(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         || Ident::new("crate", proc_macro2::Span::mixed_site()),
         |use_crate| use_crate.crate_name,
     );
-    todo!()
+    let impls = impls.iter().map(|item| {
+        let primary_ctor = match item {
+            Impl::Inherent(inherent) => {
+                let pat_tokens = inherent.to_pattern_tokens(&ir_crate);
+                quote! {
+                    #ir_crate::patterns::PatternSeq::new(
+                        #interner,
+                        &#pat_tokens
+                    ).unwrap()
+                }
+            }
+            Impl::Trait(tr) => {
+                let pat_tokens = tr.to_pattern_tokens(&ir_crate);
+                let trait_name = tr.trait_name();
+                quote! {
+                    #ir_crate::patterns::PatternSeq::new_trait_impl(
+                        #interner,
+                        &#pat_tokens,
+                        #trait_name
+                    ).unwrap()
+                }
+            }
+        };
+        if item.has_inference_vars() {
+            quote! { #primary_ctor.boxed() }
+        } else {
+            quote! {
+                #ir_crate::patterns::ExactPatternSeq::new(#primary_ctor)
+                    .unwrap()
+                    .boxed()
+            }
+        }
+    });
+    quote! {
+        (
+            #( #impls, )*
+        )
+    }
+    .into()
 }

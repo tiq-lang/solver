@@ -1,9 +1,8 @@
-use quote::quote;
 use syn::{Ident, Token, braced, parse::Parse, token::Brace};
 
 use crate::{
     patterns::ToPatternTokens as _,
-    types::{Path, Type},
+    types::{GenericArgs, Path, Type},
 };
 
 enum ImplBody {
@@ -17,6 +16,16 @@ pub struct InherentImpl {
     body: ImplBody,
 }
 
+impl InherentImpl {
+    pub fn implementor_ty(&self) -> &Type {
+        &self.implementor
+    }
+
+    pub fn has_inference_vars(&self) -> bool {
+        self.implementor.has_inference_vars()
+    }
+}
+
 pub struct TraitImpl {
     impl_token: Token![impl],
     implementor: Type,
@@ -25,9 +34,36 @@ pub struct TraitImpl {
     body: ImplBody,
 }
 
+impl TraitImpl {
+    pub fn implementor_ty(&self) -> &Type {
+        &self.implementor
+    }
+
+    pub fn trait_name(&self) -> &Ident {
+        &self.r#trait.ident()
+    }
+
+    pub fn trait_args(&self) -> Option<&GenericArgs> {
+        self.r#trait.args()
+    }
+
+    pub fn has_inference_vars(&self) -> bool {
+        self.implementor.has_inference_vars() || self.r#trait.has_inference_vars()
+    }
+}
+
 pub enum Impl {
     Inherent(InherentImpl),
     Trait(TraitImpl),
+}
+
+impl Impl {
+    pub fn has_inference_vars(&self) -> bool {
+        match self {
+            Impl::Inherent(inherent) => inherent.has_inference_vars(),
+            Impl::Trait(tr) => tr.has_inference_vars(),
+        }
+    }
 }
 
 impl Parse for ImplBody {
@@ -63,55 +99,6 @@ impl Parse for Impl {
                 implementor,
                 body: input.parse()?,
             }))
-        }
-    }
-}
-
-impl InherentImpl {
-    pub fn has_inference_vars(&self) -> bool {
-        self.implementor.has_inference_vars()
-    }
-}
-
-impl TraitImpl {
-    pub fn has_inference_vars(&self) -> bool {
-        self.implementor.has_inference_vars() || self.r#trait.has_inference_vars()
-    }
-}
-
-impl Impl {
-    pub fn has_inference_vars(&self) -> bool {
-        match self {
-            Impl::Inherent(inherent) => inherent.has_inference_vars(),
-            Impl::Trait(tr) => tr.has_inference_vars(),
-        }
-    }
-
-    pub fn to_pattern_tokens(&self, ir_crate: &Ident) -> (proc_macro2::TokenStream, Option<Ident>) {
-        let implementor_tokens = self.implementor.to_pattern_tokens(ir_crate).1;
-        if let Some(TraitImplDetails {
-            r#trait:
-                Path {
-                    generic_args: Some(args),
-                    ident,
-                },
-            ..
-        }) = &self.as_trait
-        {
-            let args = args.args.iter().map(|arg| arg.pattern_tokens().1);
-            (
-                quote! {
-                    [ #implementor_tokens #( #args )* ]
-                },
-                Some(ident.clone()),
-            )
-        } else {
-            (
-                quote! {
-                    [ #implementor_tokens ]
-                },
-                None,
-            )
         }
     }
 }
